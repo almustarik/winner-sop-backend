@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -15,15 +15,37 @@ enum AcademicLevel {
   fellowship
 }
 
-enum SubscriptionPlan { free premium enterprise }
-enum SubscriptionStatus { active inactive cancelled }
+enum SubscriptionPlan {
+  free
+  premium
+  enterprise
+}
+enum SubscriptionStatus {
+  active
+  inactive
+  cancelled
+}
 
-enum SOPType { masters phd mba fellowship }
-enum ToneType { formal confident inspiring }
-enum SOPStatus { draft review final exported }
+enum SOPType {
+  masters
+  phd
+  mba
+  fellowship
+}
+enum ToneType {
+  formal
+  confident
+  inspiring
+}
+enum SOPStatus {
+  draft
+  review
+  final
+  exported
+}
 
 model User {
-  id                String   @id @default(cuid())
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
   email             String   @unique
   passwordHash      String
   firstName         String
@@ -39,8 +61,8 @@ model User {
   subscriptionStatus SubscriptionStatus @default(active)
   quota             Int                @default(5)
   usedQuota         Int                @default(0)
-  stripeCustomerId  String?            @db.VarChar(191)
-  stripeSubscriptionId String?         @db.VarChar(191)
+  stripeCustomerId  String?
+  stripeSubscriptionId String?
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -53,9 +75,9 @@ model User {
 }
 
 model SOP {
-  id               String   @id @default(cuid())
-  userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String   @db.ObjectId
+  user             User     @relation(fields: [userId], references: [id])
   title            String
   type             SOPType
   targetProgram    String
@@ -80,9 +102,9 @@ model SOP {
 }
 
 model SOPVersion {
-  id        String   @id @default(cuid())
-  sopId     String
-  sop       SOP      @relation(fields: [sopId], references: [id], onDelete: Cascade)
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sopId     String   @db.ObjectId
+  sop       SOP      @relation(fields: [sopId], references: [id])
   version   Int
   content   Json
   feedback  Json
@@ -91,4 +113,3 @@ model SOPVersion {
 
   @@index([sopId, version])
 }
-

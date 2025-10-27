@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateSopDto, UpdateSopDto, AIGenerationRequest } from './dto';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -43,7 +44,7 @@ export class SopsService {
 
   async update(id: string, dto: UpdateSopDto) {
     const sop = await this.get(id);
-    await this.prisma.sOPVersion.create({ data: { sopId: sop.id, version: sop.version, content: sop.content, feedback: sop.feedback, changes: ['Manual edit'] } });
+    await this.prisma.sOPVersion.create({ data: { sopId: sop.id, version: sop.version, content: sop.content as Prisma.InputJsonValue, feedback: sop.feedback as Prisma.InputJsonValue, changes: ['Manual edit'] } });
     return this.prisma.sOP.update({ where: { id }, data: {
       title: dto.title ?? undefined,
       targetProgram: dto.target_program ?? undefined,
@@ -73,7 +74,7 @@ export class SopsService {
   async restore(id: string, version: number) {
     const v = await this.prisma.sOPVersion.findFirst({ where: { sopId: id, version } });
     if (!v) throw new NotFoundException('Version not found');
-    await this.prisma.sOPVersion.create({ data: { sopId: id, version: version + 1, content: v.content, feedback: v.feedback, changes: ['Restore to previous version'] } });
-    return this.prisma.sOP.update({ where: { id }, data: { content: v.content, feedback: v.feedback, version: { increment: 1 }, updatedAt: new Date() } });
-  }
+    await this.prisma.sOPVersion.create({ data: { sopId: id, version: version + 1, content: v.content as Prisma.InputJsonValue, feedback: v.feedback as Prisma.InputJsonValue, changes: ['Restore to previous version'] } });
+    return this.prisma.sOP.update({ where: { id }, data: { content: v.content as Prisma.InputJsonValue, feedback: v.feedback as Prisma.InputJsonValue, version: { increment: 1 }, updatedAt: new Date() } });
+}
 }
