@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AcademicLevel {
+  bachelors
+  masters
+  phd
+  mba
+  fellowship
+}
+
+enum SubscriptionPlan { free premium enterprise }
+enum SubscriptionStatus { active inactive cancelled }
+
+enum SOPType { masters phd mba fellowship }
+enum ToneType { formal confident inspiring }
+enum SOPStatus { draft review final exported }
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  firstName         String
+  lastName          String
+  country           String
+  academicLevel     AcademicLevel
+  targetProgram     String
+  targetUniversity  String
+
+  profile           Json
+
+  plan              SubscriptionPlan   @default(free)
+  subscriptionStatus SubscriptionStatus @default(active)
+  quota             Int                @default(5)
+  usedQuota         Int                @default(0)
+  stripeCustomerId  String?            @db.VarChar(191)
+  stripeSubscriptionId String?         @db.VarChar(191)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastLogin         DateTime?
+  isActive          Boolean  @default(true)
+  isVerified        Boolean  @default(false)
+  verificationToken String?
+
+  sops              SOP[]
+}
+
+model SOP {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  type             SOPType
+  targetProgram    String
+  targetUniversity String
+  tone             ToneType @default(formal)
+
+  content          Json
+  feedback         Json
+  plagiarism       Json
+
+  status           SOPStatus @default(draft)
+  version          Int       @default(1)
+  wordCount        Int       @default(0)
+  readingTime      Int       @default(0)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  versions         SOPVersion[]
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model SOPVersion {
+  id        String   @id @default(cuid())
+  sopId     String
+  sop       SOP      @relation(fields: [sopId], references: [id], onDelete: Cascade)
+  version   Int
+  content   Json
+  feedback  Json
+  changes   Json
+  createdAt DateTime @default(now())
+
+  @@index([sopId, version])
+}
+
