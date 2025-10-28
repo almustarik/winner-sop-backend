@@ -1,15 +1,19 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { LoginDto, OTPRequestDto, OTPVerifyDto, RegisterDto, ResetConfirmDto, ResetDto, SocialLoginDto } from './dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as argon2 from 'argon2';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   private sign(subject: string, kind: 'access'|'refresh' = 'access') {
-    const secret = process.env.JWT_SECRET || 'dev-secret';
+    const secret = this.config.get<string>('JWT_SECRET') || 'dev-secret';
     const exp = kind === 'access' ? '30m' : '7d';
     return jwt.sign({ sub: subject, type: kind }, secret, { expiresIn: exp });
   }

@@ -1,57 +1,57 @@
-# Node dependencies
-node_modules/
+# compiled output
+/dist
+/node_modules
+/build
 
-# Build output
-dist/
-build/
-lib/
-out/
-.cache/
-.parcel-cache/
-.turbo/
-.next/
-
-# Test coverage / instrumentation
-coverage/
-.nyc_output/
-
-# TypeScript
-*.tsbuildinfo
-
-# Logs and diagnostics
-logs/
+# Logs
+logs
 *.log
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 lerna-debug.log*
 
-# Environment files
-.env
-.env.*
-!.env.example
-!.env.sample
-!.env.schema
-
-# Editor and OS files
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# OS
 .DS_Store
-Thumbs.db
 
-# Package manager stores
-.pnpm-store/
+# Tests
+/coverage
+/.nyc_output
 
-# Misc caches
-.eslintcache
-.stylelintcache
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
-# SQLite artifacts (common in local dev)
-*.sqlite
-*.sqlite-journal
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# temp directory
+.temp
+.tmp
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+

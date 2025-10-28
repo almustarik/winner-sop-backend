@@ -7,109 +7,144 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum AcademicLevel {
-  bachelors
-  masters
-  phd
-  mba
-  fellowship
+enum ACADEMICLEVEL {
+  BACHELORS
+  MASTERS
+  PHD
+  MBA
+  FELLOWSHIP
 }
 
-enum SubscriptionPlan {
-  free
-  premium
-  enterprise
-}
-enum SubscriptionStatus {
-  active
-  inactive
-  cancelled
+enum SUBSCRIPTIONPLAN {
+  FREE
+  PREMIUM
+  ENTERPRISE
 }
 
-enum SOPType {
-  masters
-  phd
-  mba
-  fellowship
+enum SUBSCRIPTIONSTATUS {
+  ACTIVE
+  INACTIVE
+  CANCELLED
 }
-enum ToneType {
-  formal
-  confident
-  inspiring
+
+enum SOPTYPE {
+  MASTERS
+  PHD
+  MBA
+  FELLOWSHIP
 }
-enum SOPStatus {
-  draft
-  review
-  final
-  exported
+
+enum TONEType {
+  FORMAL
+  CONFIDENT
+  INSPIRING
+}
+
+enum SOPSTATUS {
+  DRAFT
+  REVIEW
+  FINAL
+  EXPORTED
 }
 
 model User {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
-  email             String   @unique
-  passwordHash      String
-  firstName         String
-  lastName          String
-  country           String
-  academicLevel     AcademicLevel
-  targetProgram     String
-  targetUniversity  String
-
-  profile           Json
-
-  plan              SubscriptionPlan   @default(free)
-  subscriptionStatus SubscriptionStatus @default(active)
-  quota             Int                @default(5)
-  usedQuota         Int                @default(0)
-  stripeCustomerId  String?
-  stripeSubscriptionId String?
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  lastLogin         DateTime?
-  isActive          Boolean  @default(true)
-  isVerified        Boolean  @default(false)
-  verificationToken String?
-
-  sops              SOP[]
+  id                     String            @id @default(auto()) @map("_id") @db.ObjectId
+  email                  String            @unique
+  passwordHash           String
+  firstName              String
+  lastName               String
+  country                String
+  academicLevel          ACADEMICLEVEL
+  targetProgram          String
+  targetUniversity       String
+  profile                Json
+  plan                   SUBSCRIPTIONPLAN  @default(FREE)
+  subscriptionStatus     SUBSCRIPTIONSTATUS @default(ACTIVE)
+  subscriptionExpiryDate DateTime?
+  quota                  Int                @default(5)
+  usedQuota              Int                @default(0)
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  lastLogin              DateTime?
+  isActive               Boolean           @default(true)
+  isVerified             Boolean           @default(false)
+  verificationToken      String?
+  sops                   SOP[]
+  payments               Payment[]
 }
 
 model SOP {
-  id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId           String   @db.ObjectId
-  user             User     @relation(fields: [userId], references: [id])
-  title            String
-  type             SOPType
-  targetProgram    String
-  targetUniversity String
-  tone             ToneType @default(formal)
-
-  content          Json
-  feedback         Json
-  plagiarism       Json
-
-  status           SOPStatus @default(draft)
-  version          Int       @default(1)
-  wordCount        Int       @default(0)
-  readingTime      Int       @default(0)
-
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  versions         SOPVersion[]
-  @@index([userId])
-  @@index([createdAt])
+  id                     String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId                 String         @db.ObjectId
+  user                   User           @relation(fields: [userId], references: [id])
+  title                  String
+  type                   SOPTYPE
+  targetProgram          String
+  targetUniversity       String
+  tone                   TONEType       @default(FORMAL)
+  content                Json
+  feedback               Json
+  plagiarism             Json
+  status                 SOPSTATUS      @default(DRAFT)
+  version                Int            @default(1)
+  wordCount              Int            @default(0)
+  readingTime            Int            @default(0)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  versions               SOPVersion[]
 }
 
 model SOPVersion {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  sopId     String   @db.ObjectId
-  sop       SOP      @relation(fields: [sopId], references: [id])
-  version   Int
-  content   Json
-  feedback  Json
-  changes   Json
-  createdAt DateTime @default(now())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  sopId       String   @db.ObjectId
+  sop         SOP      @relation(fields: [sopId], references: [id])
+  version     Int
+  content     Json
+  feedback    Json
+  changes     Json
+  createdAt   DateTime @default(now())
+}
 
-  @@index([sopId, version])
+model Feedback {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  sopId         String   @db.ObjectId
+  sop           SOP      @relation(fields: [sopId], references: [id])
+  section       String   // e.g., "Introduction", "Career Goals"
+  score         Float
+  feedbackText  String
+  createdAt     DateTime @default(now())
+}
+
+model Payment {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId               String   @db.ObjectId
+  paymentDate          DateTime @default(now())
+  amount               Float
+  paymentType          String
+  status               String
+  transactionId        String
+  paymentGateway       String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id])
+}
+
+model Tone {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  sopId       String   @db.ObjectId
+  sop         SOP      @relation(fields: [sopId], references: [id])
+  tone        TONEType
+  createdAt   DateTime @default(now())
+}
+
+model SOPTemplate {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  templateName  String
+  frameworkType String
+  content       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  drafts        SOP[]
 }
