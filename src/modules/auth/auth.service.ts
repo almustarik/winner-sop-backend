@@ -44,6 +44,27 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  // Generate tokens with configurable expiration
+  private generateAccessToken(userId: string, email: string): string {
+    const payload = { sub: userId, email, type: 'access' };
+    const expiresIn = this.config.get('JWT_ACCESS_EXPIRATION') || '1h';
+    
+    return this.jwtService.sign(payload, {
+      secret: this.config.get('JWT_SECRET'),
+      expiresIn,
+    });
+  }
+
+  private generateRefreshToken(userId: string, email: string): string {
+    const payload = { sub: userId, email, type: 'refresh' };
+    const expiresIn = this.config.get('JWT_REFRESH_EXPIRATION') || '30d';
+    
+    return this.jwtService.sign(payload, {
+      secret: this.config.get('JWT_SECRET'),
+      expiresIn,
+    });
+  }
+
   // Send OTP for login or registration
   async sendOTP(sendOtpDto: SendOtpDto) {
     const { email } = sendOtpDto;
@@ -239,13 +260,14 @@ export class AuthService {
       },
     });
 
-    // Generate JWT token
-    const payload = { sub: updatedUser.id, email: updatedUser.email };
-    const accessToken = this.jwtService.sign(payload);
+     // Generate both tokens
+     const accessToken = this.generateAccessToken(updatedUser.id, updatedUser.email);
+     const refreshToken = this.generateRefreshToken(updatedUser.id, updatedUser.email);
 
     return {
       message: 'OTP verified successfully',
-      accessToken,
+      access_token: accessToken,
+      refresh_token: refreshToken,
       user: {
         id: updatedUser.id,
         email: updatedUser.email,

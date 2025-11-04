@@ -8,16 +8,10 @@ export class CommonService {
 
   async sendEmail(htmlContent: string, mailAddress: string, subject: string) {
     let response = await this.mailerService.sendMail({
-      to: mailAddress, // list of receivers
+      to: mailAddress,
       from: `"WinnerSOP" <${this.configService.get('DEFAULT_MAIL_SENDER')}>`, // sender address
       subject,
-      // text: email, // plaintext body
-      html: `${htmlContent}`, // HTML body content
-      template: '../../templates/confirmation',
-      context: {
-        name: 'John Doe',
-        url: 'https://www.google.com',
-      },
+      html: `${htmlContent}`,
     });
     if (response.response.includes('250 2.0.0 OK')) return true;
     else return false;

@@ -58,11 +58,11 @@ import { ScheduleModule } from '@nestjs/schedule';
           from: '"WinnerSOP" <' + configService.get('DEFAULT_MAIL_SENDER') + '>',
         },
         template: {
-          dir: path.join(process.cwd(), 'src', 'templates'),
-          adapter: new HandlebarsAdapter(),
-          options: {
-            strict: true,
-          },
+          // dir: path.join(process.cwd(), 'src', 'templates'),
+          // adapter: new HandlebarsAdapter(),
+          // options: {
+          //   strict: true,
+          // },
         },
       }),
     }),
