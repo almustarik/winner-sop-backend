@@ -73,6 +73,23 @@ model User {
   verificationToken      String?
   sops                   SOP[]
   payments               Payment[]
+  otps                   OTP[]
+}
+
+model OTP {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email       String   // Store email for quick lookup
+  code        String   // The 6-digit OTP code
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  isUsed      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  @@index([email])
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model SOP {

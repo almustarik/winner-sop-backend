@@ -1,18 +1,18 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable } from '@nestjs/common';
-import config from 'src/config';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class CommonService {
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(private readonly mailerService: MailerService, private readonly configService: ConfigService) {}
 
-  async sendEmail(email: string, mailAddress: string, subject: string) {
+  async sendEmail(htmlContent: string, mailAddress: string, subject: string) {
     let response = await this.mailerService.sendMail({
       to: mailAddress, // list of receivers
-      from: `"WinnerSOP" <${config.default_mail_sender}>`, // sender address
+      from: `"WinnerSOP" <${this.configService.get('DEFAULT_MAIL_SENDER')}>`, // sender address
       subject,
       // text: email, // plaintext body
-      html: `${email}`, // HTML body content
+      html: `${htmlContent}`, // HTML body content
       template: '../../templates/confirmation',
       context: {
         name: 'John Doe',
