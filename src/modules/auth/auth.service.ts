@@ -143,8 +143,8 @@ export class AuthService {
     try {
       const subject = user.firstName ? 'Your Login OTP Code' : 'Welcome! Your Verification Code';
       const htmlContent = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>${user.firstName ? `Hi ${user.firstName}` : 'Welcome'}!</h2>
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; text-align: center;">
+              <h2>${`Hello ${user.firstName}. Welcome to WinnerSOP!`}</h2>
               <p>Your verification code is:</p>
               <div style="background-color: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
                 ${otpCode}
