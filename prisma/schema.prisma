@@ -58,6 +58,7 @@ model User {
   targetProgram          String
   targetUniversity       String
   profile                Json
+  authProvider           String?
   plan                   SUBSCRIPTIONPLAN   @default(FREE)
   subscriptionStatus     SUBSCRIPTIONSTATUS @default(ACTIVE)
   subscriptionExpiryDate DateTime?

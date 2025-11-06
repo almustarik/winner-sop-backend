@@ -22,6 +22,7 @@ import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { JwtService } from '@nestjs/jwt';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
+import { SocialLoginDto } from './dto/dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ACADEMICLEVEL } from '@prisma/client';
 
@@ -323,6 +324,7 @@ export class AuthService {
         academicLevel: true,
         targetProgram: true,
         targetUniversity: true,
+        authProvider: true,
         plan: true,
         subscriptionStatus: true,
         quota: true,
@@ -372,6 +374,82 @@ export class AuthService {
     } catch (error) {
       console.error('Error cleaning up expired OTPs:', error);
     }
+  }
+
+  // Social login: create or find user and issue tokens
+  async social(dto: SocialLoginDto) {
+    const email = dto.email;
+
+    let user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      const profile = {
+        academic_background: {
+          degree: 'Not provided',
+          institution: 'Not provided',
+          field_of_study: 'Not provided',
+          graduation_year: 2020,
+          gpa: 0.0,
+          relevant_courses: [],
+          research_experience: [],
+          publications: [],
+        },
+        work_experience: [],
+        achievements: [],
+        career_goals: {
+          short_term: 'User will add short-term goals soon.',
+          long_term: 'User will add long-term goals soon.',
+          motivation: 'User will add detailed motivation soon.',
+          target_industry: 'Undecided',
+          desired_role: 'Undecided',
+        },
+        personal_story:
+          'This is a placeholder personal story which will be updated by the user during onboarding. It ensures validation constraints are satisfied.',
+      };
+
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash: await argon2.hash('social-login-placeholder'),
+          firstName: dto.first_name || 'User',
+          lastName: dto.last_name || 'User',
+          country: 'Unknown',
+          academicLevel: ACADEMICLEVEL.BACHELORS,
+          targetProgram: 'General',
+          targetUniversity: 'Unknown',
+          profile,
+          isVerified: true,
+          lastLogin: new Date(),
+          authProvider: dto.provider,
+        },
+      });
+    } else {
+      // Update last login and mark verified if needed
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastLogin: new Date(),
+          isVerified: true,
+          authProvider: dto.provider ?? user.authProvider,
+        },
+      });
+    }
+
+    const access_token = this.generateAccessToken(user.id, user.email);
+    const refresh_token = this.generateRefreshToken(user.id, user.email);
+
+    return {
+      access_token,
+      refresh_token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        authProvider: user.authProvider,
+        isNewUser: !user.firstName || user.firstName === 'User',
+      },
+    };
   }
 
   // private sign(subject: string, kind: 'access'|'refresh' = 'access') {
