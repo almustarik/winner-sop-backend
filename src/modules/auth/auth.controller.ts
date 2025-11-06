@@ -7,6 +7,8 @@ import { SendOtpDto, SendOtpResponseDto } from './dto/send-otp.dto';
 import { VerifyOtpDto, VerifyOtpResponseDto } from './dto/verify-otp.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { BadRequestResponseDto, UnauthorizedResponseDto, ConflictResponseDto } from './dto/error-response.dto';
+// import { LoginDto, RegisterDto, OTPRequestDto, OTPVerifyDto, ResetConfirmDto, ResetDto } from './dto/dto';
+import { SocialLoginDto } from './dto/dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 
@@ -145,8 +147,11 @@ export class AuthController {
   // @Post('verify-email')
   // async verify(@Body('token') token: string) { return this.auth.verifyEmail(token); }
 
-  // @Post('social')
-  // async social(@Body() dto: SocialLoginDto) { return this.auth.social(dto); }
+  @Post('social')
+  @HttpCode(HttpStatus.OK)
+  async social(@Body() dto: SocialLoginDto) {
+    return this.auth.social(dto);
+  }
 
   // @Post('otp/send')
   // async otpSend(@Body() dto: OTPRequestDto) { return this.auth.otpSend(dto); }
