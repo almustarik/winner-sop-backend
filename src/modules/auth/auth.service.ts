@@ -24,6 +24,7 @@ import { JwtService } from '@nestjs/jwt';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ACADEMICLEVEL } from '@prisma/client';
+import { isValidEmail } from 'src/utils/utils';
 
 @Injectable()
 export class AuthService {
@@ -68,6 +69,16 @@ export class AuthService {
   // Send OTP for login or registration
   async sendOTP(sendOtpDto: SendOtpDto) {
     const { email } = sendOtpDto;
+
+    // Validate email address
+    if (!isValidEmail(email)) {
+      throw new BadRequestException({
+        statusCode: 401,
+        message: 'Invalid email address',
+        error: 'Bad Request',
+        errorCode: 'INVALID_EMAIL_FORMAT',
+      });
+    }
 
     // Check if user exists
     let user = await this.prisma.user.findUnique({
@@ -126,10 +137,8 @@ export class AuthService {
           firstName: 'User',
           lastName: 'User',
           country: 'Unknown',
-          academicLevel: ACADEMICLEVEL.BACHELORS,
           targetProgram: 'General',
           targetUniversity: 'Unknown',
-          profile,
           isVerified: false,
         },
       });
@@ -320,7 +329,7 @@ export class AuthService {
         firstName: true,
         lastName: true,
         country: true,
-        academicLevel: true,
+        dateOfBirth: true,
         targetProgram: true,
         targetUniversity: true,
         plan: true,
