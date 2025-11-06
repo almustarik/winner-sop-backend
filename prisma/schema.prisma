@@ -34,7 +34,7 @@ enum SOPTYPE {
   FELLOWSHIP
 }
 
-enum TONEType {
+enum TONETYPE {
   FORMAL
   CONFIDENT
   INSPIRING
@@ -51,14 +51,16 @@ model User {
   id                     String             @id @default(auto()) @map("_id") @db.ObjectId
   email                  String             @unique
   passwordHash           String
+
   firstName              String
   lastName               String
   country                String
-  academicLevel          ACADEMICLEVEL
-  targetProgram          String
-  targetUniversity       String
-  profile                Json
-  authProvider           String?
+  dateOfBirth            DateTime?
+
+  // Display-only preferences, not used for generation logic
+  targetProgram          String?
+  targetUniversity       String?
+
   plan                   SUBSCRIPTIONPLAN   @default(FREE)
   subscriptionStatus     SUBSCRIPTIONSTATUS @default(ACTIVE)
   subscriptionExpiryDate DateTime?
@@ -66,15 +68,26 @@ model User {
   usedQuota              Int                @default(0)
   stripeCustomerId       String?
   stripeSubscriptionId   String?
+
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   lastLogin              DateTime?
   isActive               Boolean            @default(true)
   isVerified             Boolean            @default(false)
   verificationToken      String?
+
+  // Relations
+  educations             Education[]
+  experiences            WorkExperience[]
+  languages              LanguageProficiency[]
+  activities             ExtracurricularActivity[]
+  achievements           LifeAchievement[]
   sops                   SOP[]
   payments               Payment[]
   otps                   OTP[]
+
+  @@index([country])
+  @@index([createdAt])
 }
 
 model OTP {
@@ -93,80 +106,228 @@ model OTP {
   @@index([expiresAt])
 }
 
+model Education {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId             String   @db.ObjectId
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  level              ACADEMICLEVEL
+  fieldOfStudy       String?          // e.g., Computer Science
+  institutionName    String
+  institutionCountry String?
+  graduationYear     Int?
+  result             String?          // "3.86" or "First Class"
+  notableAchievements String[]        // chips from UI
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId, level])
+  @@index([userId, createdAt])
+}
+
+model WorkExperience {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId             String   @db.ObjectId
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jobTitle           String
+  companyName        String
+  country            String?
+  startDate          DateTime?
+  endDate            DateTime?
+  isCurrent          Boolean  @default(false)
+  keyContributions   String[]   // chips + short phrases; freeform text can go to summary
+  summary            String?    // textarea
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId, isCurrent])
+  @@index([userId, startDate])
+}
+
+model LanguageProficiency {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  language   String   // "English"
+  level      String?  // "Fluent", "Conversational" etc.
+
+  createdAt  DateTime @default(now())
+  @@unique([userId, language])
+}
+
+model ExtracurricularActivity {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title      String            // "Sports Club"
+  details    String?           // optional notes
+  tags       String[]          // chips
+
+  createdAt  DateTime @default(now())
+  @@index([userId])
+}
+
+model LifeAchievement {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label      String            // "IEEE Award", "Army Veteran"
+  description String?
+  year       Int?
+
+  createdAt  DateTime @default(now())
+  @@index([userId, year])
+}
+
+model StudyPlan {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  sopId               String   @unique @db.ObjectId
+  sop                 SOP      @relation(fields: [sopId], references: [id], onDelete: Cascade)
+
+  preferredCountry    String
+  applyingForLevel    ACADEMICLEVEL
+  preferredUniversity String?
+  intendedProgram     String
+  whyProgram          String?
+  whyProgramTags      String[]
+  whyUniversity       String?
+  whyUniversityTags   String[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model FinalQA {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  sopId               String   @unique @db.ObjectId
+  sop                 SOP      @relation(fields: [sopId], references: [id], onDelete: Cascade)
+
+  bachelorThesis      String?
+  internshipsProjects String?
+  lifeAchievements    String[]
+  careerGoalsSummary  String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
 model SOP {
   id               String       @id @default(auto()) @map("_id") @db.ObjectId
   userId           String       @db.ObjectId
-  user             User         @relation(fields: [userId], references: [id])
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   title            String
   type             SOPTYPE
-  targetProgram    String
-  targetUniversity String
-  tone             TONEType     @default(FORMAL)
-  content          Json
-  feedback         Json
-  plagiarism       Json
+  tonePrimary      TONETYPE     @default(FORMAL)
+  toneExtra        TONETYPE[]   // optional additional tones
+
+  // Current rendered draft (always keep), tied to latest version
   status           SOPSTATUS    @default(DRAFT)
-  version          Int          @default(1)
+  content          String?      // current visible version content (plain text / markdown)
   wordCount        Int          @default(0)
   readingTime      Int          @default(0)
+
+  // Snapshots of source data used to render this SOP
+  snapshot         SOPSnapshot? // created at "Generate SOP" time
+
+  // Per-SOP inputs for Steps 2 & 3
+  studyPlan        StudyPlan?
+  finalQA          FinalQA?
+
+  plagiarism       Json?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
+
   versions         SOPVersion[]
-  Feedback         Feedback[]
-  Tone             Tone[]
-  SOPTemplate      SOPTemplate? @relation(fields: [sOPTemplateId], references: [id])
-  sOPTemplateId    String?      @db.ObjectId
+  feedbacks        Feedback[]
+  template         SOPTemplate? @relation(fields: [sopTemplateId], references: [id])
+  sopTemplateId    String?      @db.ObjectId
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+// Immutable capture of the user data used to generate the SOP.
+model SOPSnapshot {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  sopId         String        @unique @db.ObjectId
+  sop           SOP           @relation(fields: [sopId], references: [id], onDelete: Cascade)
+
+  // back-relation for versions -> snapshot
+  versions      SOPVersion[]  // <-- add this
+
+  userInfo      Json
+  educations    Json
+  experiences   Json
+  languages     Json
+  activities    Json
+  achievements  Json
+
+  createdAt     DateTime      @default(now())
 }
 
 model SOPVersion {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   sopId     String   @db.ObjectId
-  sop       SOP      @relation(fields: [sopId], references: [id])
+  sop       SOP      @relation(fields: [sopId], references: [id], onDelete: Cascade)
+
   version   Int
-  content   Json
-  feedback  Json
-  changes   Json
+  content   String    // full rendered SOP at that time
+  tone      TONETYPE? // tone used to render this version
+  changes   Json?     // optional diff or notes
+  snapshotId String?  @db.ObjectId
+  snapshot   SOPSnapshot? @relation(fields: [snapshotId], references: [id])
+
   createdAt DateTime @default(now())
+
+  @@unique([sopId, version])
+  @@index([snapshotId])
 }
 
 model Feedback {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   sopId        String   @db.ObjectId
-  sop          SOP      @relation(fields: [sopId], references: [id])
-  section      String // e.g., "Introduction", "Career Goals"
-  score        Float
+  sop          SOP      @relation(fields: [sopId], references: [id], onDelete: Cascade)
+
+  section      String   // "Introduction", "Career Goals"
+  score        Float?
   feedbackText String
   createdAt    DateTime @default(now())
-}
 
-model Payment {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String   @db.ObjectId
-  paymentDate    DateTime @default(now())
-  amount         Float
-  paymentType    String
-  status         String
-  transactionId  String
-  paymentGateway String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  user           User     @relation(fields: [userId], references: [id])
-}
-
-model Tone {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  sopId     String   @db.ObjectId
-  sop       SOP      @relation(fields: [sopId], references: [id])
-  tone      TONEType
-  createdAt DateTime @default(now())
+  @@index([sopId, createdAt])
 }
 
 model SOPTemplate {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId
   templateName  String
-  frameworkType String
-  content       String
+  frameworkType String   // "Reverse-Chron", "Problem-Solution", etc.
+  content       String   // template text with placeholders
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
   drafts        SOP[]
+}
+
+model Payment {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  paymentDate    DateTime @default(now())
+  amount         Float
+  currency       String   @default("USD")
+  paymentType    String   // "subscription", "one_time"
+  status         String   // "succeeded", "failed", "refunded"
+  transactionId  String   @unique
+  paymentGateway String   // "stripe"
+  meta           Json?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, paymentDate])
 }

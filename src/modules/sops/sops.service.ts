@@ -8,21 +8,21 @@ export class SopsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateSopDto) {
-    const content = { introduction: '', academic_background: '', work_experience: '', achievements: '', career_goals: '', motivation: '', conclusion: '' };
-    const feedback = { clarity: 8.0, goal_alignment: 8.0, personal_story: 7.0, language: 8.0, overall: 7.8, suggestions: [] };
+    const contentObj = { introduction: '', academic_background: '', work_experience: '', achievements: '', career_goals: '', motivation: '', conclusion: '' };
+    const contentString = JSON.stringify(contentObj);
     const plagiarism = { score: 5.0, is_original: true, sources: [] };
     const user = await this.prisma.user.findFirst();
     const sop = await this.prisma.sOP.create({ data: {
       userId: user?.id ?? 'seed-user',
       title: dto.title,
       type: dto.type as any,
-      targetProgram: dto.target_program,
-      targetUniversity: dto.target_university,
-      tone: (dto.tone ?? 'formal') as any,
-      content, feedback, plagiarism,
-      wordCount: 0, readingTime: 0,
+      tonePrimary: (dto.tone ?? 'formal') as any,
+      content: contentString,
+      plagiarism,
+      wordCount: 0,
+      readingTime: 0,
     }});
-    await this.prisma.sOPVersion.create({ data: { sopId: sop.id, version: 1, content, feedback, changes: ['Initial draft'] } });
+    await this.prisma.sOPVersion.create({ data: { sopId: sop.id, version: 1, content: contentString, changes: ['Initial draft'] } });
     return sop;
   }
 
@@ -44,15 +44,33 @@ export class SopsService {
 
   async update(id: string, dto: UpdateSopDto) {
     const sop = await this.get(id);
-    await this.prisma.sOPVersion.create({ data: { sopId: sop.id, version: sop.version, content: sop.content as Prisma.InputJsonValue, feedback: sop.feedback as Prisma.InputJsonValue, changes: ['Manual edit'] } });
-    return this.prisma.sOP.update({ where: { id }, data: {
-      title: dto.title ?? undefined,
-      targetProgram: dto.target_program ?? undefined,
-      targetUniversity: dto.target_university ?? undefined,
-      tone: (dto.tone as any) ?? undefined,
-      version: { increment: 1 },
-      updatedAt: new Date(),
-    }});
+    // Get the latest version to determine next version number
+    const latestVersion = await this.prisma.sOPVersion.findFirst({
+      where: { sopId: id },
+      orderBy: { version: 'desc' },
+    });
+    const nextVersion = (latestVersion?.version ?? 0) + 1;
+    
+    // Create a new version with current content
+    if (sop.content) {
+      await this.prisma.sOPVersion.create({ 
+        data: { 
+          sopId: sop.id, 
+          version: nextVersion, 
+          content: sop.content, 
+          changes: ['Manual edit'] 
+        } 
+      });
+    }
+    
+    return this.prisma.sOP.update({ 
+      where: { id }, 
+      data: {
+        title: dto.title ?? undefined,
+        tonePrimary: dto.tone ? (dto.tone as any) : undefined,
+        updatedAt: new Date(),
+      }
+    });
   }
 
   async remove(id: string) {
@@ -74,7 +92,28 @@ export class SopsService {
   async restore(id: string, version: number) {
     const v = await this.prisma.sOPVersion.findFirst({ where: { sopId: id, version } });
     if (!v) throw new NotFoundException('Version not found');
-    await this.prisma.sOPVersion.create({ data: { sopId: id, version: version + 1, content: v.content as Prisma.InputJsonValue, feedback: v.feedback as Prisma.InputJsonValue, changes: ['Restore to previous version'] } });
-    return this.prisma.sOP.update({ where: { id }, data: { content: v.content as Prisma.InputJsonValue, feedback: v.feedback as Prisma.InputJsonValue, version: { increment: 1 }, updatedAt: new Date() } });
-}
+    
+    // Get the latest version to determine next version number
+    const latestVersion = await this.prisma.sOPVersion.findFirst({
+      where: { sopId: id },
+      orderBy: { version: 'desc' },
+    });
+    const nextVersion = (latestVersion?.version ?? 0) + 1;
+    
+    await this.prisma.sOPVersion.create({ 
+      data: { 
+        sopId: id, 
+        version: nextVersion, 
+        content: v.content, 
+        changes: ['Restore to previous version'] 
+      } 
+    });
+    return this.prisma.sOP.update({ 
+      where: { id }, 
+      data: { 
+        content: v.content, 
+        updatedAt: new Date() 
+      } 
+    });
+  }
 }
