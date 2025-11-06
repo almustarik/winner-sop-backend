@@ -181,7 +181,7 @@ export class AuthService {
 
     return {
       message: 'OTP sent successfully',
-      isNewUser: !user.firstName,
+      isNewUser: !user.firstName || user.firstName === 'User',
       email: user.email,
     };
   }
@@ -273,7 +273,7 @@ export class AuthService {
         email: updatedUser.email,
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
-        isNewUser: !updatedUser.firstName,
+        isNewUser: !updatedUser.firstName || updatedUser.firstName === 'User',
       },
     };
   }
@@ -288,7 +288,7 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    if (user.firstName) {
+    if (user.firstName && user.firstName !== 'User') {
       throw new ConflictException('User registration already completed');
     }
 
