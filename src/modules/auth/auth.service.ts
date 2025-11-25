@@ -162,7 +162,7 @@ export class AuthService {
               <p>If you didn't request this code, please ignore this email.</p>
             </div>
           `;
-      this.commonService.sendEmailAsync(htmlContent, email, subject);
+      this.commonService.sendEmail(htmlContent, email, subject);
     } catch (error) {
       throw new BadRequestException('Failed to send OTP email');
     }
