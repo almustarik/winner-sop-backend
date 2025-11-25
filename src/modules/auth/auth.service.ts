@@ -123,6 +123,22 @@ export class AuthService {
       });
     }
 
+<<<<<<< HEAD
+=======
+    const personalInfo = await this.prisma.personalInfo.findUnique({
+      where: { userId: user.id },
+    });
+    if (!personalInfo) {
+      await this.personalInfoService.create(user.id, {
+        firstName: 'User',
+        lastName: 'User',
+        country: 'Unknown',
+        targetProgram: 'General',
+        targetUniversity: 'Unknown',
+      });
+    }
+
+>>>>>>> 877658105f8d36d6b793ceb999342eacd33ad0f7
     // Invalidate all previous OTPs for this user
     await this.prisma.oTP.updateMany({
       where: {
@@ -162,7 +178,7 @@ export class AuthService {
               <p>If you didn't request this code, please ignore this email.</p>
             </div>
           `;
-      await this.commonService.sendEmail(htmlContent, email, subject);
+      this.commonService.sendEmailAsync(htmlContent, email, subject);
     } catch (error) {
       throw new BadRequestException('Failed to send OTP email');
     }
