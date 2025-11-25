@@ -119,7 +119,9 @@ export class AuthService {
       });
     }
 
-    const personalInfo = await this.personalInfoService.findByUserId(user.id);
+    const personalInfo = await this.prisma.personalInfo.findUnique({
+      where: { userId: user.id },
+    });
     if (!personalInfo) {
       await this.personalInfoService.create(user.id, {
         firstName: 'User',
@@ -169,7 +171,7 @@ export class AuthService {
               <p>If you didn't request this code, please ignore this email.</p>
             </div>
           `;
-      await this.commonService.sendEmail(htmlContent, email, subject);
+      this.commonService.sendEmailAsync(htmlContent, email, subject);
     } catch (error) {
       throw new BadRequestException('Failed to send OTP email');
     }
