@@ -3,6 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsDateString } from 'class-validator';
 
 export class CreatePersonalInfoDto {
+
+  @ApiProperty({ description: 'SOP ID', example: '507f1f77bcf86cd799439011' })
+  @IsString()
+  sopId!: string;
+
   @ApiProperty({ description: 'First name', example: 'John' })
   @IsString()
   firstName!: string;
@@ -32,6 +37,10 @@ export class CreatePersonalInfoDto {
 }
 
 export class UpdatePersonalInfoDto {
+  @ApiProperty({ description: 'SOP ID', example: '507f1f77bcf86cd799439011' })
+  @IsString()
+  sopId!: string;
+
   @ApiProperty({ description: 'First name', example: 'John', required: false })
   @IsOptional()
   @IsString()
@@ -70,6 +79,9 @@ export class PersonalInfoResponseDto {
     @ApiProperty({ description: 'User ID', example: '507f1f77bcf86cd799439011' })
     userId!: string;
   
+    @ApiProperty({ description: 'SOP ID', example: '507f1f77bcf86cd799439011' })
+    sopId!: string;
+
     @ApiProperty({ description: 'First name', example: 'John' })
     firstName!: string;
   

@@ -26,7 +26,6 @@ import { SocialLoginDto } from './dto/dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ACADEMICLEVEL } from '@prisma/client';
 import { isValidEmail } from 'src/utils/utils';
-import { PersonalInfoService } from '../personal-info/personal-info.service';
 
 @Injectable()
 export class AuthService {
@@ -35,7 +34,6 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly commonService: CommonService,
     private readonly jwtService: JwtService,
-    private readonly personalInfoService: PersonalInfoService,
   ) {}
 
   private readonly OTP_LENGTH = 6;
@@ -115,18 +113,13 @@ export class AuthService {
           email,
           passwordHash: await argon2.hash('temp-password-placeholder'),
           isVerified: false,
+          firstName: 'User',
+          lastName: 'User',
+          country: 'Unknown',
+          academicLevel: ACADEMICLEVEL.BACHELORS,
+          targetProgram: 'General',
+          targetUniversity: 'Unknown',
         },
-      });
-    }
-
-    const personalInfo = await this.personalInfoService.findByUserId(user.id);
-    if (!personalInfo) {
-      await this.personalInfoService.create(user.id, {
-        firstName: 'User',
-        lastName: 'User',
-        country: 'Unknown',
-        targetProgram: 'General',
-        targetUniversity: 'Unknown',
       });
     }
 
@@ -157,10 +150,10 @@ export class AuthService {
 
     // Send OTP email
     try {
-      const subject = personalInfo?.firstName ? 'Your Login OTP Code' : 'Welcome! Your Verification Code';
+      const subject = user.firstName ? 'Your Login OTP Code' : 'Welcome! Your Verification Code';
       const htmlContent = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; text-align: center;">
-              <h2>${`Hello ${personalInfo?.firstName}. Welcome to WinnerSOP!`}</h2>
+              <h2>${`Hello ${user.firstName}. Welcome to WinnerSOP!`}</h2>
               <p>Your verification code is:</p>
               <div style="background-color: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
                 ${otpCode}
@@ -176,7 +169,7 @@ export class AuthService {
 
     return {
       message: 'OTP sent successfully',
-      isNewUser: !personalInfo?.firstName || personalInfo?.firstName === 'User',
+      isNewUser: !user.firstName || user.firstName === 'User',
       email: user.email,
     };
   }
@@ -187,9 +180,6 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: {
-        personalInfo: true,
-      },
     });
 
     if (!user) {
@@ -252,9 +242,6 @@ export class AuthService {
 
     const updatedUser = await this.prisma.user.update({
       where: { id: user.id },
-      include: {
-        personalInfo: true,
-      },
       data: {
         isVerified: true,
         lastLogin: new Date(),
@@ -272,9 +259,9 @@ export class AuthService {
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
-        firstName: updatedUser.personalInfo?.firstName,
-        lastName: updatedUser.personalInfo?.lastName,
-        isNewUser: !updatedUser.personalInfo?.firstName || updatedUser.personalInfo?.firstName === 'User',
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        isNewUser: !updatedUser.firstName || updatedUser.firstName === 'User',
       },
     };
   }
@@ -283,24 +270,18 @@ export class AuthService {
   async completeRegistration(userId: string, completeRegistrationDto: CompleteRegistrationDto) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        personalInfo: true,
-      },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    if (user.personalInfo?.firstName && user.personalInfo?.firstName !== 'User') {
+    if (user.firstName && user.firstName !== 'User') {
       throw new ConflictException('User registration already completed');
     }
 
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
-      include: {
-        personalInfo: true,
-      },
       data: {
         ...completeRegistrationDto,
       },
@@ -311,8 +292,8 @@ export class AuthService {
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
-        firstName: updatedUser.personalInfo?.firstName,
-        lastName: updatedUser.personalInfo?.lastName,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
       },
     };
   }
@@ -324,12 +305,12 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        personalInfo: {
-          select: {
-            firstName: true,
-            lastName: true,
-          },
-        },
+        firstName: true,
+        lastName: true,
+        country: true,
+        academicLevel: true,
+        targetProgram: true,
+        targetUniversity: true,
         authProvider: true,
         plan: true,
         subscriptionStatus: true,
@@ -388,7 +369,6 @@ async social(dto: SocialLoginDto) {
 
   let user = await this.prisma.user.findUnique({ 
     where: { email },
-    include: { personalInfo: true }
   });
 
   if (!user) {
@@ -400,29 +380,23 @@ async social(dto: SocialLoginDto) {
         isVerified: true,
         lastLogin: new Date(),
         authProvider: dto.provider,
+        firstName: dto.first_name || 'User',
+        lastName: dto.last_name || 'User',
+        country: 'Unknown',
+        academicLevel: ACADEMICLEVEL.BACHELORS,
+        targetProgram: 'General',
+        targetUniversity: 'Unknown',
       },
-      include: { personalInfo: true }
-    });
-
-    // Create personal info separately
-    await this.personalInfoService.create(user.id, {
-      firstName: dto.first_name || 'User',
-      lastName: dto.last_name || 'User',
-      country: 'Unknown',
-      targetProgram: 'General',
-      targetUniversity: 'Unknown',
     });
 
     // Refetch user with personal info
     user = await this.prisma.user.findUnique({
       where: { id: user.id },
-      include: { personalInfo: true }
     });
   } else {
     // Update last login and mark verified if needed
     user = await this.prisma.user.update({
       where: { id: user.id },
-      include: { personalInfo: true },
       data: {
         lastLogin: new Date(),
         isVerified: true,
@@ -430,22 +404,10 @@ async social(dto: SocialLoginDto) {
       },
     });
 
-    // Create personal info if it doesn't exist (for existing users)
-    if (!user.personalInfo) {
-      await this.personalInfoService.create(user.id, {
-        firstName: dto.first_name || 'User',
-        lastName: dto.last_name || 'User',
-        country: 'Unknown',
-        targetProgram: 'General',
-        targetUniversity: 'Unknown',
-      });
-
-      // Refetch user with personal info
-      user = await this.prisma.user.findUnique({
-        where: { id: user.id },
-        include: { personalInfo: true }
-      });
-    }
+    // Refetch user with personal info
+    user = await this.prisma.user.findUnique({
+      where: { id: user.id },
+    });
   }
 
   const access_token = this.generateAccessToken(user!.id, user!.email);
@@ -457,10 +419,10 @@ async social(dto: SocialLoginDto) {
     user: {
       id: user!.id,
       email: user!.email,
-      firstName: user!.personalInfo?.firstName,
-      lastName: user!.personalInfo?.lastName,
+      firstName: user!.firstName,
+      lastName: user!.lastName,
       authProvider: user!.authProvider,
-      isNewUser: !user!.personalInfo?.firstName || user!.personalInfo?.firstName === 'User',
+      isNewUser: !user!.firstName || user!.firstName === 'User',
     },
   };
 }

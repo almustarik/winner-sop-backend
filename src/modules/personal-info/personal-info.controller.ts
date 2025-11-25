@@ -9,6 +9,7 @@ import {
   HttpStatus,
   NotFoundException,
   ConflictException,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { PersonalInfoService } from './personal-info.service';
@@ -66,8 +67,8 @@ export class PersonalInfoController {
     status: HttpStatus.NOT_FOUND,
     description: 'Personal information not found',
   })
-  async getPersonalInfo(@CurrentUser('sub') userId: string) {
-    const personalInfo = await this.personalInfoService.findByUserId(userId);
+  async getPersonalInfo(@CurrentUser('sub') userId: string, @Query('sopId') sopId: string) {
+    const personalInfo = await this.personalInfoService.findBySopId(userId, sopId);
 
     if (!personalInfo) {
       throw new NotFoundException('Personal information not found');
@@ -124,9 +125,9 @@ export class PersonalInfoController {
     status: HttpStatus.NOT_FOUND,
     description: 'Personal information not found',
   })
-  async delete(@CurrentUser('sub') userId: string) {
+  async delete(@CurrentUser('sub') userId: string, @Query('sopId') sopId: string) {
     try {
-      await this.personalInfoService.delete(userId);
+      await this.personalInfoService.delete(userId, sopId);
       return {
         message: 'Personal information deleted successfully',
         statusCode: HttpStatus.OK,
@@ -145,8 +146,8 @@ export class PersonalInfoController {
     status: HttpStatus.OK,
     description: 'Check completed successfully',
   })
-  async checkExists(@CurrentUser('sub') userId: string) {
-    const personalInfo = await this.personalInfoService.findByUserId(userId);
+  async checkExists(@CurrentUser('sub') userId: string, @Query('sopId') sopId: string) {
+    const personalInfo = await this.personalInfoService.findBySopId(userId, sopId);
 
     const exists = !!personalInfo;
     const isComplete =

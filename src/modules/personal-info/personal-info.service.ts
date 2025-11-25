@@ -7,69 +7,55 @@ import { CreatePersonalInfoDto, UpdatePersonalInfoDto } from './dto/personal-inf
 export class PersonalInfoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, createPersonalInfoDto: CreatePersonalInfoDto) {
-    // Check if personal info already exists for this user
-    const existingInfo = await this.prisma.personalInfo.findUnique({
-      where: { userId },
-    });
-
-    if (existingInfo) {
-      throw new ConflictException('Personal information already exists for this user');
-    }
-    const createdPersonalInfo = await this.prisma.personalInfo.create({
-        data: {
-          userId,
-          ...createPersonalInfoDto,
-        },
-      });
-
-    if (!createdPersonalInfo) {
-      throw new NotFoundException('Personal information not found');
-    }
-    return createdPersonalInfo;
+  private async ensureSopOwnership(userId: string, sopId: string) {
+    const sop = await this.prisma.sOP.findFirst({ where: { id: sopId, userId } });
+    if (!sop) throw new NotFoundException('SOP not found for this user');
   }
 
-  async findByUserId(userId: string) {
-    const personalInfo = await this.prisma.personalInfo.findUnique({
-      where: { userId },
+  async create(userId: string, dto: CreatePersonalInfoDto) {
+    const { sopId, dateOfBirth, ...rest } = dto;
+    await this.ensureSopOwnership(userId, sopId);
+
+    const alreadyExists = await this.prisma.personalInfo.findUnique({ where: { sopId } });
+    if (alreadyExists) throw new ConflictException('Personal info already exists for this SOP');
+
+    return this.prisma.personalInfo.create({
+      data: {
+        userId,
+        sopId,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        ...rest,
+      },
     });
+  }
 
-    if (!personalInfo) {
-      throw new NotFoundException('Personal information not found');
-    }
-
+  async findBySopId(userId: string, sopId: string) {
+    await this.ensureSopOwnership(userId, sopId);
+    const personalInfo = await this.prisma.personalInfo.findUnique({ where: { sopId } });
+    if (!personalInfo) throw new NotFoundException('Personal information not found');
     return personalInfo;
   }
 
-  async update(userId: string, updatePersonalInfoDto: UpdatePersonalInfoDto) {
-    const existingInfo = await this.findByUserId(userId);
-    
-    if (!existingInfo) {
-      // Create if doesn't exist
-      return this.create(userId, updatePersonalInfoDto as CreatePersonalInfoDto);
+  async update(userId: string, dto: UpdatePersonalInfoDto) {
+    const { sopId, dateOfBirth, ...rest } = dto;
+    await this.ensureSopOwnership(userId, sopId);
+
+    const existing = await this.prisma.personalInfo.findUnique({ where: { sopId } });
+    if (!existing) {
+      return this.create(userId, dto as CreatePersonalInfoDto);
     }
-    
-    const updatedPersonalInfo = await this.prisma.personalInfo.update({
-      where: { userId },
-      data: updatePersonalInfoDto,
+
+    return this.prisma.personalInfo.update({
+      where: { sopId },
+      data: {
+        ...rest,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+      },
     });
-
-    if (!updatedPersonalInfo) {
-      throw new NotFoundException('Personal information not found');
-    }
-
-    return updatedPersonalInfo;
   }
 
-  async delete(userId: string) {
-    const deletedPersonalInfo = await this.prisma.personalInfo.delete({
-      where: { userId },
-    });
-
-    if (!deletedPersonalInfo) {
-      throw new NotFoundException('Personal information not found');
-    }
-
-    return deletedPersonalInfo;
+  async delete(userId: string, sopId: string) {
+    await this.ensureSopOwnership(userId, sopId);
+    return this.prisma.personalInfo.delete({ where: { sopId } });
   }
 }

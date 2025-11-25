@@ -51,6 +51,13 @@ model User {
   id                     String             @id @default(auto()) @map("_id") @db.ObjectId
   email                  String             @unique
   passwordHash           String
+  firstName              String
+  lastName               String
+  country                String
+  academicLevel          ACADEMICLEVEL
+  targetProgram          String?
+  targetUniversity       String?
+  dateOfBirth            DateTime?
 
   plan                   SUBSCRIPTIONPLAN   @default(FREE)
   subscriptionStatus     SUBSCRIPTIONSTATUS @default(ACTIVE)
@@ -69,7 +76,6 @@ model User {
   authProvider           String?
 
   // Relations
-  personalInfo           PersonalInfo?      // One-to-one relation
   educations             Education[]
   experiences            WorkExperience[]
   languages              LanguageProficiency[]
@@ -100,8 +106,9 @@ model OTP {
 
 model PersonalInfo {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId            String    @unique @db.ObjectId
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String    @db.ObjectId
+  sopId             String    @unique @db.ObjectId
+  sop               SOP      @relation(fields: [sopId], references: [id], onDelete: Cascade)
 
   firstName         String
   lastName          String
@@ -247,6 +254,7 @@ model SOP {
   snapshot         SOPSnapshot? // created at "Generate SOP" time
 
   // Per-SOP inputs for Steps 2 & 3
+  personalInfo     PersonalInfo?
   studyPlan        StudyPlan?
   finalQA          FinalQA?
 
