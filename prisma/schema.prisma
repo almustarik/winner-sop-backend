@@ -52,15 +52,6 @@ model User {
   email                  String             @unique
   passwordHash           String
 
-  firstName              String
-  lastName               String
-  country                String
-  dateOfBirth            DateTime?
-
-  // Display-only preferences, not used for generation logic
-  targetProgram          String?
-  targetUniversity       String?
-
   plan                   SUBSCRIPTIONPLAN   @default(FREE)
   subscriptionStatus     SUBSCRIPTIONSTATUS @default(ACTIVE)
   subscriptionExpiryDate DateTime?
@@ -78,6 +69,7 @@ model User {
   authProvider           String?
 
   // Relations
+  personalInfo           PersonalInfo?      // One-to-one relation
   educations             Education[]
   experiences            WorkExperience[]
   languages              LanguageProficiency[]
@@ -87,7 +79,6 @@ model User {
   payments               Payment[]
   otps                   OTP[]
 
-  @@index([country])
   @@index([createdAt])
 }
 
@@ -105,6 +96,26 @@ model OTP {
   @@index([email])
   @@index([userId])
   @@index([expiresAt])
+}
+
+model PersonalInfo {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String    @unique @db.ObjectId
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName         String
+  lastName          String
+  country           String
+  dateOfBirth       DateTime?
+
+  // Display-only preferences, not used for generation logic
+  targetProgram     String?
+  targetUniversity  String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([country])
 }
 
 model Education {

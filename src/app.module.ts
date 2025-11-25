@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from './modules/auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
 import { SopsModule } from './modules/sops/sops.module';
 import { AiModule } from './modules/ai/ai.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -16,6 +15,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ScheduleModule } from '@nestjs/schedule';
+import { PersonalInfoModule } from './modules/personal-info/personal-info.module';
 
 
 @Module({
@@ -23,7 +23,6 @@ import { ScheduleModule } from '@nestjs/schedule';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
-    UsersModule,
     SopsModule,
     AiModule,
     PaymentsModule,
@@ -67,6 +66,7 @@ import { ScheduleModule } from '@nestjs/schedule';
       }),
     }),
     CommonModule,
+    PersonalInfoModule,
   ],
   controllers: [AppController],
   providers: [AppService, CommonService],

@@ -26,6 +26,7 @@ import { SocialLoginDto } from './dto/dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ACADEMICLEVEL } from '@prisma/client';
 import { isValidEmail } from 'src/utils/utils';
+import { PersonalInfoService } from '../personal-info/personal-info.service';
 
 @Injectable()
 export class AuthService {
@@ -34,6 +35,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly commonService: CommonService,
     private readonly jwtService: JwtService,
+    private readonly personalInfoService: PersonalInfoService,
   ) {}
 
   private readonly OTP_LENGTH = 6;
@@ -108,40 +110,23 @@ export class AuthService {
 
     // Create user if doesn't exist
     if (!user) {
-      const profile = {
-        academic_background: {
-          degree: 'Not provided',
-          institution: 'Not provided',
-          field_of_study: 'Not provided',
-          graduation_year: 2020,
-          gpa: 0.0,
-          relevant_courses: [],
-          research_experience: [],
-          publications: [],
-        },
-        work_experience: [],
-        achievements: [],
-        career_goals: {
-          short_term: 'User will add short-term goals soon.',
-          long_term: 'User will add long-term goals soon.',
-          motivation: 'User will add detailed motivation soon.',
-          target_industry: 'Undecided',
-          desired_role: 'Undecided',
-        },
-        personal_story:
-          'This is a placeholder personal story which will be updated by the user during onboarding. It ensures validation constraints are satisfied.',
-      };
       user = await this.prisma.user.create({
         data: {
           email,
           passwordHash: await argon2.hash('temp-password-placeholder'),
-          firstName: 'User',
-          lastName: 'User',
-          country: 'Unknown',
-          targetProgram: 'General',
-          targetUniversity: 'Unknown',
           isVerified: false,
         },
+      });
+    }
+
+    const personalInfo = await this.personalInfoService.findByUserId(user.id);
+    if (!personalInfo) {
+      await this.personalInfoService.create(user.id, {
+        firstName: 'User',
+        lastName: 'User',
+        country: 'Unknown',
+        targetProgram: 'General',
+        targetUniversity: 'Unknown',
       });
     }
 
@@ -172,10 +157,10 @@ export class AuthService {
 
     // Send OTP email
     try {
-      const subject = user.firstName ? 'Your Login OTP Code' : 'Welcome! Your Verification Code';
+      const subject = personalInfo?.firstName ? 'Your Login OTP Code' : 'Welcome! Your Verification Code';
       const htmlContent = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; text-align: center;">
-              <h2>${`Hello ${user.firstName}. Welcome to WinnerSOP!`}</h2>
+              <h2>${`Hello ${personalInfo?.firstName}. Welcome to WinnerSOP!`}</h2>
               <p>Your verification code is:</p>
               <div style="background-color: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
                 ${otpCode}
@@ -191,7 +176,7 @@ export class AuthService {
 
     return {
       message: 'OTP sent successfully',
-      isNewUser: !user.firstName || user.firstName === 'User',
+      isNewUser: !personalInfo?.firstName || personalInfo?.firstName === 'User',
       email: user.email,
     };
   }
@@ -202,6 +187,9 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { email },
+      include: {
+        personalInfo: true,
+      },
     });
 
     if (!user) {
@@ -264,6 +252,9 @@ export class AuthService {
 
     const updatedUser = await this.prisma.user.update({
       where: { id: user.id },
+      include: {
+        personalInfo: true,
+      },
       data: {
         isVerified: true,
         lastLogin: new Date(),
@@ -281,9 +272,9 @@ export class AuthService {
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        isNewUser: !updatedUser.firstName || updatedUser.firstName === 'User',
+        firstName: updatedUser.personalInfo?.firstName,
+        lastName: updatedUser.personalInfo?.lastName,
+        isNewUser: !updatedUser.personalInfo?.firstName || updatedUser.personalInfo?.firstName === 'User',
       },
     };
   }
@@ -292,18 +283,24 @@ export class AuthService {
   async completeRegistration(userId: string, completeRegistrationDto: CompleteRegistrationDto) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: {
+        personalInfo: true,
+      },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    if (user.firstName && user.firstName !== 'User') {
+    if (user.personalInfo?.firstName && user.personalInfo?.firstName !== 'User') {
       throw new ConflictException('User registration already completed');
     }
 
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
+      include: {
+        personalInfo: true,
+      },
       data: {
         ...completeRegistrationDto,
       },
@@ -314,8 +311,8 @@ export class AuthService {
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
+        firstName: updatedUser.personalInfo?.firstName,
+        lastName: updatedUser.personalInfo?.lastName,
       },
     };
   }
@@ -327,12 +324,12 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
-        country: true,
-        dateOfBirth: true,
-        targetProgram: true,
-        targetUniversity: true,
+        personalInfo: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
         authProvider: true,
         plan: true,
         subscriptionStatus: true,
@@ -386,78 +383,87 @@ export class AuthService {
   }
 
   // Social login: create or find user and issue tokens
-  async social(dto: SocialLoginDto) {
-    const email = dto.email;
+async social(dto: SocialLoginDto) {
+  const email = dto.email;
 
-    let user = await this.prisma.user.findUnique({ where: { email } });
+  let user = await this.prisma.user.findUnique({ 
+    where: { email },
+    include: { personalInfo: true }
+  });
 
-    if (!user) {
-      const profile = {
-        academic_background: {
-          degree: 'Not provided',
-          institution: 'Not provided',
-          field_of_study: 'Not provided',
-          graduation_year: 2020,
-          gpa: 0.0,
-          relevant_courses: [],
-          research_experience: [],
-          publications: [],
-        },
-        work_experience: [],
-        achievements: [],
-        career_goals: {
-          short_term: 'User will add short-term goals soon.',
-          long_term: 'User will add long-term goals soon.',
-          motivation: 'User will add detailed motivation soon.',
-          target_industry: 'Undecided',
-          desired_role: 'Undecided',
-        },
-        personal_story:
-          'This is a placeholder personal story which will be updated by the user during onboarding. It ensures validation constraints are satisfied.',
-      };
+  if (!user) {
+    // Create user without personal info fields
+    user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash: await argon2.hash('social-login-placeholder'),
+        isVerified: true,
+        lastLogin: new Date(),
+        authProvider: dto.provider,
+      },
+      include: { personalInfo: true }
+    });
 
-      user = await this.prisma.user.create({
-        data: {
-          email,
-          passwordHash: await argon2.hash('social-login-placeholder'),
-          firstName: dto.first_name || 'User',
-          lastName: dto.last_name || 'User',
-          country: 'Unknown',
-          targetProgram: 'General',
-          targetUniversity: 'Unknown',
-          isVerified: true,
-          lastLogin: new Date(),
-          authProvider: dto.provider,
-        },
+    // Create personal info separately
+    await this.personalInfoService.create(user.id, {
+      firstName: dto.first_name || 'User',
+      lastName: dto.last_name || 'User',
+      country: 'Unknown',
+      targetProgram: 'General',
+      targetUniversity: 'Unknown',
+    });
+
+    // Refetch user with personal info
+    user = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: { personalInfo: true }
+    });
+  } else {
+    // Update last login and mark verified if needed
+    user = await this.prisma.user.update({
+      where: { id: user.id },
+      include: { personalInfo: true },
+      data: {
+        lastLogin: new Date(),
+        isVerified: true,
+        authProvider: dto.provider ?? user.authProvider,
+      },
+    });
+
+    // Create personal info if it doesn't exist (for existing users)
+    if (!user.personalInfo) {
+      await this.personalInfoService.create(user.id, {
+        firstName: dto.first_name || 'User',
+        lastName: dto.last_name || 'User',
+        country: 'Unknown',
+        targetProgram: 'General',
+        targetUniversity: 'Unknown',
       });
-    } else {
-      // Update last login and mark verified if needed
-      user = await this.prisma.user.update({
+
+      // Refetch user with personal info
+      user = await this.prisma.user.findUnique({
         where: { id: user.id },
-        data: {
-          lastLogin: new Date(),
-          isVerified: true,
-          authProvider: dto.provider ?? user.authProvider,
-        },
+        include: { personalInfo: true }
       });
     }
-
-    const access_token = this.generateAccessToken(user.id, user.email);
-    const refresh_token = this.generateRefreshToken(user.id, user.email);
-
-    return {
-      access_token,
-      refresh_token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        authProvider: user.authProvider,
-        isNewUser: !user.firstName || user.firstName === 'User',
-      },
-    };
   }
+
+  const access_token = this.generateAccessToken(user!.id, user!.email);
+  const refresh_token = this.generateRefreshToken(user!.id, user!.email);
+
+  return {
+    access_token,
+    refresh_token,
+    user: {
+      id: user!.id,
+      email: user!.email,
+      firstName: user!.personalInfo?.firstName,
+      lastName: user!.personalInfo?.lastName,
+      authProvider: user!.authProvider,
+      isNewUser: !user!.personalInfo?.firstName || user!.personalInfo?.firstName === 'User',
+    },
+  };
+}
 
   // private sign(subject: string, kind: 'access'|'refresh' = 'access') {
   //   const secret = this.config.get<string>('JWT_SECRET') || 'dev-secret';

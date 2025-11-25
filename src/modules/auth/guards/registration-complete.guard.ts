@@ -20,10 +20,10 @@ import {
   
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { firstName: true, lastName: true },
+        include: { personalInfo: true },
       });
-  
-      if (!user?.firstName || !user?.lastName) {
+      
+      if (!user?.personalInfo?.firstName || !user?.personalInfo?.lastName) {
         throw new ForbiddenException(
           'Please complete your registration to access this resource',
         );
